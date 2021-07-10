@@ -1,0 +1,76 @@
+$color-background: white;
+$color-theme: #779;
+$icon-size: 16px;
+
+$color-hover: desaturate(darken($color-theme, 20%), 10%);
+$color-active: fade-out($color-hover, 0.5);
+
+.player-controls-volume {
+  padding: 7px 0;
+}
+
+.round-button {
+  margin-right: 10px;
+  padding: 5px;
+  background: $color-background;
+  border: 2px solid $color-theme;
+  border-radius: 100%;
+  outline: none;
+
+  &[disabled] {
+    opacity: 0.5;
+  }
+
+  &:not(disabled) {
+    cursor: pointer;
+
+    &:hover {
+      border-color: $color-hover;
+
+      .bp3-icon {
+        fill: $color-hover;
+      }
+    }
+
+    &:active {
+      border-color: $color-active;
+
+      .bp3-icon {
+        fill: $color-active;
+      }
+    }
+
+    .bp3-icon {
+      color: $color-theme;
+    }
+  }
+}
+
+.volume-slider {
+  width: 100px;
+  min-width: 100px;
+  position: relative;
+  border-radius: 4px;
+  transition: width 0.3s, height 0.05s;
+
+  .bp3-slider-progress.bp3-intent-primary {
+    background-color: $color-theme;
+  }
+
+  .bp3-slider-handle {
+    width: 14px;
+    height: 14px;
+    background: $color-theme;
+    border-radius: 100%;
+    transform: scale(0);
+    transition: transform 0.2s;
+  }
+
+  &:not(disabled) {
+    &:hover {
+      .bp3-slider-handle {
+        transform: scale(1);
+      }
+    }
+  }
+}

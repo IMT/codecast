@@ -1,38 +1,56 @@
-@import url('https://fonts.googleapis.com/css?family=Inconsolata:400,700');
-@import url('https://fonts.googleapis.com/css?family=Open+Sans:400,700');
+@import url('~typeface-inconsolata');
+@import url('~typeface-open-sans');
 
-$font-family-sans-serif: 'Open Sans';
+$font-family-sans-serif: 'Open Sans', sans-serif;
 $font-family-monospace: 'Inconsolata';
+$font-family-console: 'Lucida Console', Monaco, monospace;
 
-$screen-lg-min: 1200px;  // lg: normal/wide format
-$font-size-lg: 18px;
-$line-height-lg: 25px;
+$font-size-base: 1rem;
+$font-size-lg: $font-size-base * 1.12 !default;
+$font-size-sm: $font-size-base * .875 !default;
 
-$screen-md-min: 1024px;  // md: narrow format
-$font-size-md: 14px;
-$line-height-md: 20px;
+$grid-breakpoints: (
+  xs: 0,
+  sm: 576px,
+  md: 800px,
+  lg: 1024px,
+  xl: 1200px
+) !default;
 
-$screen-sm-min: 800px;   // sm: FUN format
-$font-size-sm: 12px;
-$line-height-sm: 17px;
-
-$container-sm: $screen-sm-min;
 $grid-gutter-width: 6px;
-$nav-link-padding: 7px 12px;
 
-$bootstrap-sass-asset-helper: '~/bootstrap-sass/assets';
-@import '~bootstrap-sass/assets/stylesheets/bootstrap';
+@import "node_modules/bootstrap/scss/bootstrap";
+
+@import "~@blueprintjs/core/lib/css/blueprint.css";
+@import "~@blueprintjs/icons/lib/css/blueprint-icons.css";
+@import "~@blueprintjs/datetime/lib/css/blueprint-datetime.css";
+
+@import "./player/style.scss";
+@import "./editor/style.scss";
+@import "./task/task.scss";
+@import "python";
+@import "subtitles";
+@import "controls";
+
+html {
+    margin-left: calc(100vw - 100%);
+    margin-right: 0;
+}
+
+/* Darker icons on blueprint buttons. */
+.bp3-button .bp3-icon, .bp3-button .bp3-icon-standard, .bp3-button .bp3-icon-large {
+  color: #3c5060;
+}
 
 @font-face {
   font-family: 'fioi';
-  src: url('../../assets/fioi.woff') format('woff');
+  src: url('../assets/fioi.woff') format('woff');
   font-weight: normal;
   font-style: normal;
 }
 #main {
   margin: 0 auto;
 }
-
 
 .fi {
   display: inline-block;
@@ -79,30 +97,30 @@ body#app {
   background: none transparent;
 }
 body#app, #app h1, #app h2, #app h3 {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: normal;
   font-family: $font-family-sans-serif;
 }
 #app h1, #app h2, #app h3 {
   line-height: 1;
-  padding: 2px;
-  background-color: #eee;
+  /* XXX padding: 2px; */
+  /* XXX background-color: #eee; */
 }
 #app h1 {
   font-size: 24px;
 }
 #app h2 {
   font-size: 18px;
-  font-weight: bold;
-  padding: 5px 6px;
-  border-top: 1px solid;
+  /* font-weight: bold; */
+  /* XXX padding: 5px 6px; */
+  /* XXX border-top: 1px solid; */
 }
 #app h3 {
   font-size: 14px;
-  margin: 10px 0 0;
+  /* XXX margin: 10px 0 0; */
 }
 
-#app tt, #app pre, .ace_editor, .terminal, .stack-view {
+#app tt, #app pre, .ace_editor, .diagnostics, .terminal, .stack-view {
   font-weight: normal;
   font-family: $font-family-monospace;
 }
@@ -121,18 +139,18 @@ body#app, #app h1, #app h2, #app h3 {
 }
 
 // Override bootstrap style
-#app .panel {
+#app .card {
   position: relative;
 }
-#app .panel, #app .navbar {
+#app .card, #app .navbar {
   margin-bottom: 6px;
   border-radius: 0;
 }
-#app .panel-heading {
+#app .card-header {
   line-height: 1;
   padding: 2px 4px;
 }
-#app .panel-body {
+#app .card-body {
   padding: 0;
   min-height: 14px;
 }
@@ -149,19 +167,12 @@ body#app, #app h1, #app h2, #app h3 {
 }
 
 
-#mainView {
-  float: left;
-}
-#mainView-panes {
-  float: left;
-  top: 62px;
-}
-#mainView-panes .pane {
-  max-height: calc(100vh - 62px);
-  overflow-y: scroll;
+#mainView-container, #mainView-panes {
+  display: flex;
+  flex-flow: row;
 }
 
-#global-controls {
+#floating-controls {
   padding: 10px;
   top: -1px;
   right: 13px;
@@ -172,10 +183,10 @@ body#app, #app h1, #app h2, #app h3 {
   background-color: #f7f7f7;
   transition: all 250ms;
 }
-#global-controls.collapsed {
+#floating-controls.collapsed {
   transform: translateY(calc(-100% + 10px));
 }
-#global-controls .collapse-toggle {
+#floating-controls .collapse-toggle {
   position: absolute;
   right: -12px;
   bottom: -12px;
@@ -195,6 +206,7 @@ body#app, #app h1, #app h2, #app h3 {
   margin: 4px;
   line-height: 16px;
   background-color: #222;
+  outline: none;
 }
 .terminal-cursor {
   background-color: #888;
@@ -209,6 +221,13 @@ body#app, #app h1, #app h2, #app h3 {
 }
 .terminal-placeholder {
   color: #AAA;
+}
+.terminal-view-header {
+  display: flex;
+  align-items: center;
+  .bp3-icon {
+    margin-left: 5px;
+  }
 }
 
 #vumeter {
@@ -241,6 +260,9 @@ body#app, #app h1, #app h2, #app h3 {
 .stack-view ul {
   padding-left: 20px;
 }
+.stack-view  ul.global-scope {
+  padding-left: 2px;
+}
 .stack-view li {
   list-style-type: none;
 }
@@ -252,20 +274,22 @@ body#app, #app h1, #app h2, #app h3 {
   top: -1px;
   right: -1px;
 }
-.stack-controls .btn-group {
-  vertical-align: top;
-}
-.stack-controls button {
-  height: 22px;
-  margin: 0;
-  padding: 0px 10px;
+.stack-controls button.bp3-small {
+  min-height: 20px;
 }
 
 .value-load {
   font-weight: bold;
 }
 .value-previous {
-  text-decoration: line-through;
+  color: #999999;
+  font-style: italic;
+}
+.value-previous::before {
+  content: '(';
+}
+.value-previous::after {
+  content: ')';
 }
 span + .value-previous {
   padding-left: 0.5em;
@@ -273,7 +297,10 @@ span + .value-previous {
 
 .vardecl {
   overflow: hidden;
-  max-height: 2 * $line-height-lg;
+  max-height: 2 * ceil($line-height-lg * $font-size-lg);
+}
+.vardecl-object {
+  max-height: none;
 }
 
 .array-cells {
@@ -318,88 +345,33 @@ span + .value-previous {
   z-index: 20;
 }
 
-.controls > * {
-  display: inline-block;
-}
-/*
-.controls-main, .controls-stepper, .controls-stepper-wrapper {
-  display: inline-block;
-  height: 34px;
-}
-.controls-main {
-  width: 440px;
-  margin-right: 10px;
-}
-.controls-stepper {
-  width: 450px;
-}
-*/
-.controls-stepper-execution p {
-  text-align: center;
-}
-.controls-translate button {
-  width: 85px;
-  text-align: center;
-}
-.player-controls-right {
-  text-align: right;
-}
-.player-controls-stepper {
-  text-align: center;
-}
-
-.player-controls-playback button {
-  width: 40px;
-  text-align: center;
-}
-.player-controls-times {
-  width: 120px;
-  text-align: center;
-}
-.player-slider-container {
-  padding: 0 10px;
-}
-.player-slider-container .rc-slider {
-  width: 100%;
-  height: 24px;
-  position: relative;
-  padding: 0;
-}
-.player-slider-container .rc-slider-rail,
-.player-slider-container .rc-slider-track {
-  margin-top: 10px;
-}
-.player-slider-container .rc-slider-handle {
-  margin-top: 5px;
-}
-.player-slider-container .rc-slider-track {
-  background-color: #abe2fb;
-}
-
 .mainView-lg {
   pre, .ace_editor, .terminal, .stack-view, .subtitles-band-frame {
     font-size: $font-size-lg;
-    line-height: $line-height-lg;
+    line-height: ceil($line-height-lg * $font-size-lg);
   }
 }
 
 .mainView-md {
   pre, .ace_editor, .terminal, .stack-view, .subtitles-band-frame {
-    font-size: $font-size-md;
-    line-height: $line-height-md;
+    font-size: $font-size-base;
+    line-height: ceil($line-height-base * $font-size-base);
   }
   .terminal-line, .terminal-placeholder {
     width: 60 * 7px;
   }
   .vardecl {
-    max-height: 2 * $line-height-md;
+    max-height: 2 * ceil($line-height-base * $font-size-base);
+  }
+  .vardecl-object {
+    max-height: none;
   }
 }
 
 .mainView-sm {
   pre, .ace_editor, .terminal, .stack-view, .subtitles-band-frame {
     font-size: $font-size-sm;
-    line-height: $line-height-sm;
+    line-height: ceil($line-height-sm * $font-size-sm);
   }
   .terminal-line, .terminal-placeholder {
     width: 60 * 6px;
@@ -410,12 +382,6 @@ span + .value-previous {
   }
   .player-controls-playback button {
     width: 30px;
-  }
-  .controls-stepper-execution {
-    width: 237px;
-  }
-  .controls-translate button {
-    width: 80px;
   }
   .player-controls-times {
     width: 90px;
@@ -430,6 +396,9 @@ span + .value-previous {
   }
   .vardecl {
     max-height: 2 * $line-height-sm;
+  }
+  .vardecl-object {
+    max-height: none;
   }
   .array-cell {
     font-size: 10px;
@@ -447,21 +416,36 @@ span + .value-previous {
   width: 100%;
   height: 100%;
 }
-.editor-shield-up {
+.editor-shield  {
   z-index: 1;
   cursor: default;
   position: absolute;
   top: 0;
   left: 0;
+  display: none;
+}
+.editor-shield-up {
+  display: block;
 }
 
-.directive-view {
-  float: left;
-  overflow: hidden;
+/* Tweak navbar for view toggle buttons */
+.directive-bar {
+  margin-bottom: 6px;
 }
+.directive-bar .bp3-navbar {
+  height: 40px;
+  padding: 0 8px;
+  box-shadow: none;
+}
+.directive-bar .bp3-navbar-group {
+  height: 40px;
+}
+.directive-bar .bp3-button {
+  margin-right: 8px;
+}
+
 .directive-view > .directive {
   position: relative;
-  margin-right: 5px;
 }
 .directive-title {
   /* reserve space for the btn-xs buttons */
@@ -474,11 +458,9 @@ span + .value-previous {
   right: -1px;
 }
 
-.memory-controls .btn-group {
-  vertical-align: top;
-}
-.memory-controls button {
-    padding: 3px 12px;
+.memory-controls .bp3-button-group {
+    vertical-align: 6px;
+    padding-right: 2px;
 }
 .memory-controls .start-address {
   display: inline-block;
@@ -511,9 +493,8 @@ span + .value-previous {
 }
 
 svg {
-
-  font-family: "Open Sans";
   font-size: 13px;
+  font-family: $font-family-sans-serif;
 
   /* Common to all directives */
   .grid {
@@ -665,123 +646,8 @@ svg {
     text-align: center;
     font-weight: bold;
     font-size: 1.2em;
+    margin-bottom: 10px;
   }
-}
-
-/* subtitles */
-
-.subtitles-pane {
-  border: 1px solid #ccc;
-  padding: 5px;
-  background: #fff;
-  z-index: 6;
-  .subtitles-timestamp {
-    font-family: 'Lucida Console', Monaco, monospace;
-    font-size: 12px;
-    text-align: center;
-    background-color: #efefef;
-    border: 1px solid #ddd;
-    margin-top: 3px;
-    .col-sm-6 {
-      padding: 0;
-      &:first-child {
-        border-right: 1px solid #fff;
-      }
-    }
-  }
-  .subtitles-item-editor,
-  .subtitles-item-viewer {
-    .btn-xs {
-      border: 0;
-      border-radius: 0;
-      padding: 1px 2px;
-    }
-  }
-  .subtitles-item-editor {
-    margin: 15px 0;
-    .subtitles-timestamp .subtitles-timestamp-start,
-    .subtitles-timestamp .subtitles-timestamp-end {
-      padding: 0 3px;
-      line-height: 20px;
-    }
-    textarea.subtitles-text {
-      margin-left: -3px; /*match bootstrap row margin left -3px*/
-      resize: vertical;
-      color: #2a2aff;
-    }
-    .subtitles-split {
-      text-align: center;
-      line-height: 1;
-      p {
-        display: inline-block;
-        margin-bottom: 0;
-        font-family: 'Lucida Console', Monaco, monospace;
-        font-size: 12px;
-      }
-    }
-  }
-  .subtitles-item-viewer {
-    .subtitles-timestamp .subtitles-timestamp-start,
-    .subtitles-timestamp .subtitles-timestamp-end {
-      padding: 0 6px;
-    }
-    .subtitles-text {
-      max-height: 40px;
-      display: block;
-      overflow: hidden;
-      line-height: 14px;
-      padding: 3px 0;
-      font-size: 11px;
-    }
-  }
-}
-.subtitles-item {
-  cursor: pointer;
-  font-size: 12px;
-}
-.subtitles-item:hover {
-  background: #ccc;
-}
-.subtitles-item-selected {
-    background: #eee;
-}
-.subtitles-band {
-  position: fixed;
-  width: 1164px;
-  z-index: 6;
-  cursor: grab;
-  cursor: -webkit-grab;
-  cursor: -moz-grab;
-  cursor: -o-grab;
-  margin: 0 0 0 -10px;
-  padding: 10px 0;
-  opacity: 0.8;
-  background-color: #222;
-  color: #ff4;
-  border-radius: 7px;
-}
-.subtitles-band-frame {
-  //background: #eee;
-  font-size: 20px;
-  padding: 2px 6px;
-  //border: 1px solid #ccc;
-  text-align: left;
-}
-.subtitles-band-moving {
-  cursor: grabbing;
-  cursor: -webkit-grabbing;
-  cursor: -moz-grabbing;
-  cursor: -o-grabbing;
-}
-.subtitles-band-inactive {
-  color: #777;
-}
-/* .subtitles-band-moving {} */
-.subtitles-band p {
-  margin: 0;
-}
-.main-view .pane {
-  overflow: hidden;
 }
 
 p.error {
@@ -792,4 +658,81 @@ p.error {
 /* highlighted text in subtitles search */
 strong.highlight {
   background: yellow;
+}
+
+/* generic */
+.cc-container {
+  margin: 0 auto;
+  max-width: 760px;
+}
+
+/* login screen */
+.cc-login {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  text-align: center;
+}
+.cc-login h1, .cc-login h3 {
+  background-color: white;
+}
+
+.buttons-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  > * {
+    margin: 3px;
+  }
+}
+
+.subtitles-buttons-container {
+  margin: 10px 0;
+}
+
+/* New layout classes, use. */
+
+.mb {
+  margin-bottom: 10px;
+}
+.mt {
+  margin-top: 10px;
+}
+.hbox {
+  display: flex;
+  flex-flow: row;
+}
+.ihbox {
+  display: inline-flex;
+  flex-flow: row;
+}
+.vbox {
+  display: flex;
+  flex-flow: column;
+}
+.fill {
+  flex-grow: 1;
+}
+
+/* Subtitles CC button */
+.btn-cc span {
+  color: #fff;
+  font-family: monospace;
+  border-radius: 3px;
+  padding: 0 2px;
+  width: 20px;
+  line-height: 16px;
+}
+.btn-cc.has-background span {
+  background-color: #5c7080;
+}
+button.btn-cc {
+  width: 30px;
+}
+
+.edit-recording-dialog {
+  width: 600px;
 }

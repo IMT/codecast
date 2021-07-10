@@ -40,5 +40,9 @@
     "default": [
       "base", {"uploadPath": "uploads"}
     ]
-  }
+  },
+  "builderUrl": "https://archive-builder.test",
+  "examplesUrl": "https://codecast.test/examples/",
+  "ownSecret": "The own secret",
+  "builderSecret": "The builder secret"
 }
