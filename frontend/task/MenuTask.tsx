@@ -1,0 +1,204 @@
+import React, {useEffect, useRef, useState} from 'react';
+import {Dialog, Icon} from '@blueprintjs/core';
+import {Cog, Record, Edit, Help} from '@blueprintjs/icons';
+import {MenuIconsTask} from "./MenuIconsTask";
+import {recordingEnabledChange} from "./task_slice";
+import {SettingsDialog} from "../common/SettingsDialog";
+import {EditRecordingDialog} from "../editor/EditRecordingDialog";
+import {ActionTypes as CommonActionTypes} from "../common/actionTypes";
+import {Screen} from "../common/screens";
+import {selectDisplayAbout, TaskAbout} from "./TaskAbout";
+import {useDispatch} from "react-redux";
+import {useAppSelector} from "../hooks";
+import {getJsLibLoaded} from "./libs/import_modules";
+import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
+import {faDownload} from '@fortawesome/free-solid-svg-icons/faDownload';
+import {faUpload} from '@fortawesome/free-solid-svg-icons/faUpload';
+import {PrinterLib} from './libs/printer/printer_lib';
+import {displayModal} from '../common/prompt_modal';
+import {ModalType} from '../common/modal_slice';
+import {LayoutMobileMode, LayoutType} from './layout/layout_types';
+import {hasBlockPlatform} from '../stepper/platforms';
+import {quickAlgoLibraries} from './libs/quick_algo_libraries_model';
+import {bufferDownload, bufferReload} from '../buffers/buffer_actions';
+import {isServerTask} from './task_types';
+import {LocalWorkDialog} from './LocalWorkDialog';
+
+import { SmartContractLib } from './libs/smart_contract/smart_contract_lib';
+import {WorkWithGitDialog} from './WorkWithGitDialog';
+import {selectLayoutMobileMode} from './layout/layout';
+import { Console, GitBranch } from '@blueprintjs/icons';
+import {getMessage} from '../lang/messages';
+
+export function MenuTask() {
+    const recordingEnabled = useAppSelector(state => state.task.recordingEnabled);
+    const playerEnabled = useAppSelector(state => !!(state.options.audioUrl));
+    const editorEnabled = useAppSelector(state => state.editor && state.editor.playerReady);
+    const screen = useAppSelector(state => state.screen);
+    const platform = useAppSelector(state => state.options.platform);
+    const canRecord = useAppSelector(state => state.options.canRecord);
+    const hideSettings = useAppSelector(state => state.options.hideSettings);
+    const menuPosition = useAppSelector(state => state.options.menuPosition);
+    const displayAbout = useAppSelector(state => selectDisplayAbout(state));
+    const currentTask = useAppSelector(state => state.task.currentTask);
+    const serverTask = null !== currentTask && isServerTask(currentTask);
+
+    const layoutMobileMode = useAppSelector(selectLayoutMobileMode);
+    const layoutType = useAppSelector(state => state.layout.type);
+    const isMobile = (LayoutType.MobileHorizontal === layoutType || LayoutType.MobileVertical === layoutType);
+
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [aboutOpen, setAboutOpen] = useState(false);
+    const [localWorkOpen, setLocalWorkOpen] = useState(false);
+    const [workWithGitOpen, setWorkWithGitOpen] = useState(false);
+
+    const controls = useAppSelector(state => state.options.controls);
+
+    const context = quickAlgoLibraries.getContext(null, 'main');
+    // Display the local work button by default for smart contract tasks
+    const canLocalWork = serverTask && ('localwork' in controls || (context && context instanceof SmartContractLib));
+
+    const canWorkWithGit = useAppSelector(state => serverTask && state.options.workWithGit);
+
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    const dispatch = useDispatch();
+
+    useEffect(() => {
+        document.addEventListener('mousedown', handleClickOutside, true);
+        document.addEventListener('keydown', handleKeyDown, true);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside, true);
+            document.removeEventListener('keydown', handleKeyDown, true);
+        }
+    })
+
+    const handleClickOutside = (event) => {
+        if (
+            wrapperRef.current
+            && !wrapperRef.current.contains(event.target)
+            && !event.target.closest('.bp6-portal')
+            && menuOpen
+        ) {
+            setMenuOpen(false);
+        }
+    }
+
+    const handleKeyDown = (event) => {
+        // Let an open modal handle the Escape key itself; only close the menu when no modal is open
+        if ('Escape' === event.key && menuOpen && !document.querySelector('.bp6-overlay-open')) {
+            setMenuOpen(false);
+        }
+    }
+
+    const toggleDocumentation = () => {
+        const newScreen = Screen.DocumentationSmall === screen || Screen.DocumentationBig === screen ? null : Screen.DocumentationSmall;
+        dispatch({type: CommonActionTypes.AppSwitchToScreen, payload: {screen: newScreen}});
+    };
+
+    const toggleRecording = () => {
+        dispatch(recordingEnabledChange(!recordingEnabled));
+        setMenuOpen(false);
+
+        if (!recordingEnabled) {
+            const context = quickAlgoLibraries.getContext(null, 'main');
+            if (context && !('robot' in context || context instanceof PrinterLib || 'quickpi' in context || 'database' in context || 'opencv' in context)) {
+                dispatch(displayModal({message: getMessage('RECORDING_LIBRARY_NOT_WORKING'), mode: ModalType.message}));
+            }
+        }
+    };
+
+    const toggleEditRecording = () => {
+        dispatch({type: CommonActionTypes.AppSwitchToScreen, payload: {screen: Screen.EditorSave}});
+    };
+
+    const closeEditRecording = () => {
+        dispatch({type: CommonActionTypes.AppSwitchToScreen, payload: {screen: null}});
+    };
+
+    const downloadAnswer = () => {
+        dispatch(bufferDownload());
+    };
+
+    const reloadAnswer = () => {
+        dispatch(bufferReload());
+    };
+
+    const forceSettingsOpen = hasBlockPlatform(platform) && platform !== getJsLibLoaded() && null !== getJsLibLoaded();
+
+    return (
+        <div ref={wrapperRef} className={`menu-container ${menuOpen ? 'is-open' : ''} position-${menuPosition ?? 'right'}`}>
+            {screen !== Screen.DocumentationSmall
+                && screen !== Screen.DocumentationBig
+                && (!isMobile || LayoutMobileMode.Editor === layoutMobileMode)
+                && <div className="menu-icons">
+                    <MenuIconsTask
+                        menuOpen={menuOpen}
+                        toggleMenu={() => setMenuOpen(!menuOpen)}
+                        toggleDocumentation={toggleDocumentation}
+                    />
+                </div>}
+            <div className={`task-menu`} inert={!menuOpen}>
+                {!hideSettings && <button className="menu-item" onClick={() => setSettingsOpen(!settingsOpen)}>
+                    <Cog/>
+                    <span>{getMessage('MENU_SETTINGS')}</span>
+                </button>}
+                {!playerEnabled && canRecord && <button className="menu-item" onClick={toggleRecording}>
+                    <Record color="#ff001f"/>
+                    <span>{getMessage('MENU_RECORDER')}</span>
+                </button>}
+                {editorEnabled && <button className="menu-item" onClick={toggleEditRecording}>
+                    <Edit/>
+                    <span>{getMessage('MENU_EDIT_RECORDING')}</span>
+                </button>}
+                {displayAbout && <button className="menu-item" onClick={() => setAboutOpen(!aboutOpen)}>
+                    <Help/>
+                    <span>{getMessage('MENU_ABOUT')}</span>
+                </button>}
+                {!(controls && 'reload' in controls && (false === controls['reload'] || '_' === controls['reload'])) &&
+                    <React.Fragment>
+                        <button className="menu-item" onClick={downloadAnswer}>
+                            <FontAwesomeIcon icon={faDownload}/>
+                            <span>{getMessage('MENU_DOWNLOAD')}</span>
+                        </button>
+                        <button className="menu-item" onClick={reloadAnswer}>
+                            <FontAwesomeIcon icon={faUpload}/>
+                            <span>{getMessage('MENU_RELOAD')}</span>
+                        </button>
+                    </React.Fragment>
+                }
+                {canLocalWork && <button className="menu-item" onClick={() => setLocalWorkOpen(!localWorkOpen)}>
+                    <Console />
+                    <span>{getMessage('MENU_LOCAL')}</span>
+                </button>}
+                {canWorkWithGit && <button className="menu-item" onClick={() => setWorkWithGitOpen(!workWithGitOpen)}>
+                    <GitBranch />
+                    <span>{getMessage('MENU_SYNC_GIT')}</span>
+                </button>}
+            </div>
+            <SettingsDialog
+                open={settingsOpen || forceSettingsOpen}
+                closable={!forceSettingsOpen}
+                onClose={() => setSettingsOpen(false)}
+            />
+            <EditRecordingDialog
+                open={screen === Screen.EditorSave}
+                onClose={closeEditRecording}
+            />
+            <LocalWorkDialog
+                open={localWorkOpen}
+                onClose={() => setLocalWorkOpen(false)}
+            />
+            <WorkWithGitDialog
+                open={workWithGitOpen}
+                onClose={() => setWorkWithGitOpen(false)}
+            />
+            <Dialog title={getMessage('MENU_ABOUT')} isOpen={aboutOpen} onClose={() => setAboutOpen(false)}>
+                <div className='bp6-dialog-body'>
+                    <TaskAbout/>
+                </div>
+            </Dialog>
+        </div>
+    );
+}

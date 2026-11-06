@@ -1,0 +1,516 @@
+import fs from 'fs';
+import path from 'path';
+import http from 'http';
+import https from 'https';
+import express from 'express';
+import bodyParser from 'body-parser';
+import {spawn} from 'child_process';
+import AnsiToHtml from 'ansi-to-html';
+import * as upload from './upload';
+import * as directives from './directives';
+import * as Arduino from './arduino';
+import oauth from './oauth';
+import startWorker from './worker';
+import {buildOptions, parseCodecastUrl} from './options';
+import addOfflineRoutes from './offline';
+import {logCompileData, logLoadingData, logUploadData, statisticsSearch} from './statistics';
+import {fileURLToPath} from 'url';
+import {dirname} from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+async function buildApp(config, store, server) {
+
+    const app = express();
+    const {rootDir} = config;
+
+    /* Enable strict routing to make trailing slashes matter. */
+    app.enable('strict routing');
+
+    /* Default implementations, override these. */
+    config.optionsHook = function (req, options, callback) {
+        callback(null, options);
+    };
+    config.getUserConfig = function (req, callback) {
+        callback(null, {grants: []});
+    };
+
+    app.set('view engine', 'pug');
+    app.set('views', path.join(__dirname, 'views'));
+
+    console.log('Is development? ', config.isDevelopment);
+    console.log(`Local URL: ${config.baseUrl}/task?platform=c&ioMode=split`)
+    if (config.isDevelopment) {
+        // Development route: /build is managed by Vite
+        const { createServer: createViteServer } = await import('vite');
+        const vite = await createViteServer({
+            root: config.rootDir,
+            server: {
+                middlewareMode: true,
+                hmr: { server },
+            },
+            appType: 'custom',
+        });
+        app.use(vite.middlewares);
+        // Serve bebras-modules under /build/bebras-modules for task.pug compatibility
+        app.use('/build/bebras-modules', express.static(path.join(config.rootDir, 'bebras-modules')));
+    } else {
+        // Production route: /build serves static files in build/
+        app.use('/build', express.static(path.join(rootDir, 'build')));
+    }
+
+    /* Serve static assets. */
+    app.use('/assets', express.static(path.join(rootDir, 'assets')));
+    app.use('/bebras-modules', express.static(path.join(rootDir, 'bebras-modules')));
+    config.rebaseUrl = function (url) {
+        return `${config.baseUrl}/${url}`;
+    }
+
+    app.use(bodyParser.json());
+
+    /* Enable OAuth2 authentification only if the database is configured. */
+    if (config.database) {
+        await new Promise<void>((resolve, reject) => {
+            oauth(app, config, (err) => err ? reject(new Error('oauth initialization failed')) : resolve());
+        });
+    }
+
+    addBackendRoutes(app, config, store);
+    addOfflineRoutes(app, config, store);
+
+    return app;
+}
+
+function addBackendRoutes(app, config, store) {
+    app.get('/', function (req, res) {
+        buildOptions(config, req, 'sandbox', function (err, options) {
+            res.render('index', {
+                development: config.isDevelopment,
+                rebaseUrl: config.rebaseUrl,
+                options
+            });
+        });
+    });
+
+    app.get('/task', function (req, res) {
+        buildOptions(config, req, 'task', function (err, options) {
+            const files = fs.readFileSync('bundled_files.txt', 'utf8')
+              .split("\n");
+
+            let filePaths = [];
+            for (let file of files) {
+                if (!(file.length && file.trim().split('')[0] !== '#')) {
+                    continue;
+                }
+
+                let [platform, filePath] = -1 !== file.indexOf(':') ? file.split(':') : [null, file];
+                if ((options.platform === 'scratch' && platform !== 'blockly') || (options.platform !== 'scratch' && platform !== 'scratch')) {
+                    filePaths.push(filePath);
+                }
+            }
+
+            res.render('task', {
+                development: config.isDevelopment,
+                rebaseUrl: config.rebaseUrl,
+                bebrasModulesUrl: config.bebrasModulesUrl ? config.bebrasModulesUrl.replace(/\/+$/, '') : null,
+                files: filePaths,
+                options
+            });
+        });
+    });
+
+    app.get('/player', function (req, res) {
+        buildOptions(config, req, 'player', function (err, options) {
+            if (err) {
+                return res.send(`Error: ${err.toString()}`);
+            }
+
+            res.render('index', {
+                development: config.isDevelopment,
+                rebaseUrl: config.rebaseUrl,
+                options,
+            });
+        });
+    });
+
+    app.get('/recorder', function (req, res) {
+        buildOptions(config, req, 'recorder', function (err, options) {
+            if (err) {
+                return res.send(`Error: ${err.toString()}`);
+            }
+
+            res.render('index', {
+                development: config.isDevelopment,
+                rebaseUrl: config.rebaseUrl,
+                options,
+            });
+        });
+    });
+
+    app.get('/editor', function (req, res) {
+        buildOptions(config, req, 'editor', function (err, options) {
+            if (err) {
+                return res.send(`Error: ${err.toString()}`);
+            }
+
+            res.render('index', {
+                development: config.isDevelopment,
+                rebaseUrl: config.rebaseUrl,
+                options,
+            });
+        });
+    });
+
+    app.get('/statistics', function (req, res) {
+        buildOptions(config, req, 'statistics', function (err, options) {
+            if (err) {
+                return res.send(`Error: ${err.toString()}`);
+            }
+
+            res.render('index', {
+                development: config.isDevelopment,
+                rebaseUrl: config.rebaseUrl,
+                options,
+            });
+        });
+    });
+
+    /* Return upload form data.  The query must specify the (s3Bucket, uploadPath)
+       pair identifying the S3 target, which must correspond to one of the user's
+       grants. */
+    app.post('/upload', function (req, res) {
+        const basePlayerUrl = req.body?.basePlayerUrl ? req.body.basePlayerUrl : config.playerUrl;
+
+        config.getUserConfig(req, function (err, userConfig) {
+            console.log('user config', userConfig);
+            selectTarget(userConfig, req.body, async function (err, target) {
+                if (err) {
+                    return res.json({error: err.toString()});
+                }
+
+                const s3client = upload.makeS3Client(target);
+                const {s3Bucket, uploadPath: uploadDir} = target;
+                const id = Date.now().toString();
+                const uploadPath = `${uploadDir}/${id}`;
+
+                try {
+                    const events = await upload.getFileUploadForm(s3client, s3Bucket, uploadPath + '.json');
+                    const audio = await upload.getFileUploadForm(s3client, s3Bucket, uploadPath + '.mp3');
+
+                    const additionalFiles = [];
+                    for (let fileName of (req.body?.additionalFiles ?? [])) {
+                        const fileForm = await upload.getFileUploadForm(s3client, s3Bucket, uploadPath + '-' + fileName);
+                        additionalFiles.push(fileForm);
+                    }
+
+                    if (err) return res.json({error: err.toString()});
+                    const baseUrl = `https://${s3Bucket}.s3.amazonaws.com/${uploadPath}`;
+                    const player_url = `${basePlayerUrl}?recording=${encodeURIComponent(baseUrl)}`;
+                    const editor_url = `${basePlayerUrl}?recording=${encodeURIComponent(baseUrl)}&mode=edit`;
+
+                    logUploadData(config, {
+                        userId: userConfig.user_id,
+                        playerUrl: player_url,
+                        basePlayerUrl,
+                    });
+
+                    res.json({player_url, editor_url, events, audio, additionalFiles});
+                } catch (err) {
+                    return res.json({error: err.toString()});
+                }
+            });
+        });
+    });
+
+    if (process.env.NODE_ENV === 'development') {
+        // put your data.mp3,data.json,data.srt into 'backend/temp' foler
+        // Make a json post request (with 'uploadId' param for custom id)
+        // Note: remember to set the srt lang code in 'uploadSrtPostFormOptions'
+        app.post('/dev-upload', function (req, res) {
+            // set your target config
+            const target = {
+                "s3AccessKeyId": "",
+                "s3SecretAccessKey": "",
+                "s3Region": "",
+                "s3Bucket": "",
+                "uploadPath": ""
+            }
+
+            if (target.s3AccessKeyId === '' ||
+                target.s3SecretAccessKey === '' ||
+                target.s3Region === '' ||
+                target.s3Bucket === '' ||
+                target.uploadPath === ''
+            ) {
+                return res.json({error: 'set your target config first'});
+            }
+
+            const s3client = upload.makeS3Client(target);
+            const {s3Bucket, uploadPath: uploadDir} = target;
+            const id = (req.body?.uploadId !== undefined) ? req.body.uploadId : Date.now().toString();
+            const base = `${uploadDir}/${id}`;
+
+            const mp3file = path.join(__dirname, 'temp/data.mp3')
+            const jsonfile = path.join(__dirname, 'temp/data.json')
+            const srtfile = path.join(__dirname, 'temp/data.srt')
+
+            fs.access(mp3file, fs.constants.F_OK, (err) => {
+                if (err) return res.json({error: `'${mp3file}' ${err ? 'does not exist' : 'exists'}`});
+            });
+            fs.access(jsonfile, fs.constants.F_OK, (err) => {
+                if (err) return res.json({error: `'${jsonfile}' ${err ? 'does not exist' : 'exists'}`});
+            });
+            fs.access(srtfile, fs.constants.F_OK, (err) => {
+                if (err) return res.json({error: `'${srtfile}' ${err ? 'does not exist' : 'exists'}`});
+            });
+
+            const uploadMp3PostFormOptions = {
+                data: fs.createReadStream(mp3file),
+                key: `${base}.mp3`,
+                extension: 'mp3',
+                bucket: s3Bucket,
+                acl: 'public-read'
+            };
+            const uploadJsonPostFormOptions = {
+                data: fs.createReadStream(jsonfile),
+                key: `${base}.json`,
+                extension: 'json',
+                bucket: s3Bucket,
+                acl: 'public-read'
+            };
+            const uploadSrtPostFormOptions = {
+                data: fs.createReadStream(srtfile),
+                key: `${base}_en-US.srt`, // replace 'en-Us' with correct Lang code of the srt
+                extension: 'srt',
+                ContentType: 'text/plain',
+                bucket: s3Bucket,
+                acl: 'public-read'
+            };
+
+
+            const uploads: any = {
+                uploadId: id,
+            };
+
+            // @ts-ignore
+            s3client.upload(uploadMp3PostFormOptions, function (err, _url) {
+                if (err) {
+                    return res.json({error: err.toString(), uploads});
+                }
+
+                uploads.mp3 = 'ok';
+
+                // @ts-ignore
+                s3client.upload(uploadJsonPostFormOptions, function (err, _url) {
+                    if (err) return res.json({error: err.toString(), uploads});
+                    uploads.json = 'ok';
+
+                    // @ts-ignore
+                    s3client.upload(uploadSrtPostFormOptions, function (err, _url) {
+                        if (err) return res.json({error: err.toString(), uploads});
+                        uploads.srt = 'ok';
+                        const baseUrl = `https://${s3Bucket}.s3.amazonaws.com/${base}`;
+                        return res.json({baseUrl, uploads});
+                    });
+                });
+            });
+        });
+    }
+
+    /* Perform the requested `changes` to the codecast at URL `base`.
+       The `base` URL must identify an S3 Target in the user's grants. */
+    app.post('/save', function (req, res) {
+        config.getUserConfig(req, function (err, userConfig) {
+            console.log('user config', userConfig);
+            const {s3Bucket, uploadPath, id} = parseCodecastUrl(req.body?.base);
+            selectTarget(userConfig, {s3Bucket, uploadPath}, function (err, target) {
+                if (err) {
+                    return res.json({error: err.toString()});
+                }
+
+                const {changes} = req.body;
+
+                store.dispatch({type: 'SAVE', payload: {target, id, changes, req, res}});
+            });
+        });
+    });
+
+    const statisticsApi = express();
+    statisticsApi.post('/search', function (req, res) {
+        config.getUserConfig(req, async function (err, userConfig) {
+            if (err) {
+                return res.json({error: err.toString()});
+            }
+
+            try {
+                const {data} = await statisticsSearch(userConfig, config, req.body);
+
+                return res.json({data});
+            } catch (err) {
+                return res.json({error: err.toString()});
+            }
+        });
+    });
+
+    statisticsApi.post('/logLoadingData', function (req, res) {
+        config.getUserConfig(req, async function (err, userConfig) {
+            if (err) {
+                return res.json({error: err.toString()});
+            }
+
+            try {
+                const {logData} = req.body;
+                logData.referer = logData.referer || (req.headers.referer || null)
+                logLoadingData(config, logData);
+
+                return res.json({});
+            } catch (err) {
+                return res.json({error: err.toString()});
+            }
+        });
+    });
+
+    app.use('/statistics/api', statisticsApi);
+
+    function selectTarget({grants}, {s3Bucket, uploadPath}, callback) {
+        for (let grant of grants) {
+            if (grant.s3Bucket === s3Bucket && grant.uploadPath === uploadPath) {
+                return callback(null, grant);
+            }
+        }
+        return callback('target unspecified');
+    }
+
+    app.post('/compile', function (req, res) {
+        const env: any = {LANGUAGE: 'c'};
+        env.SYSROOT = path.join(config.rootDir, 'sysroot');
+
+        let {source, platform, logData, headers} = req.body;
+
+        if (platform === 'arduino') {
+            env.SOURCE_WRAPPER = "wrappers/Arduino";
+            env.LANGUAGE = 'c++';
+        }
+
+        if (headers) {
+            for (let [header, content] of Object.entries<string>(headers)) {
+                fs.writeFileSync(path.join(config.rootDir, 'sysroot/usr/include', header), content);
+            }
+        }
+
+        const startTime = process.hrtime();
+        const cp = spawn('./c-to-json', {env: env});
+
+        //env.LD_LIBRARY_PATH = path.join(config.rootDir, 'lib');
+        const chunks = [];
+        const errorChunks = [];
+        let errorSent = false;
+
+        cp.stdout.on('data', function (chunk) {
+            chunks.push(chunk);
+        });
+        cp.stderr.on('data', function (chunk) {
+            errorChunks.push(chunk);
+        });
+        cp.stdin.on('error', function (err) {
+            if (errorSent) {
+                return;
+            }
+
+            errorSent = true;
+            res.json({error: err.toString()});
+        });
+        cp.stdin.write(source, function (err) {
+            if (err) {
+                console.error(err);
+            }
+            cp.stdin.end();
+        });
+        cp.on('close', function (code) {
+            if (errorSent) {
+                return;
+            }
+            if (code === 0) {
+                if (chunks.length === 0) {
+                    const convert = new AnsiToHtml();
+                    res.json({diagnostics: convert.toHtml(errorChunks.join(''))});
+                } else {
+                    try {
+                        const endTime = process.hrtime(startTime);
+                        if (logData) {
+                            logData.compile_time = (endTime[0] * 1000) + (endTime[1] / 1000000);
+                            logData.referer = logData.referer || req.headers.referer;
+                            logCompileData(config, logData);
+                        }
+
+                        let ast = JSON.parse(chunks.join(''));
+                        const convert = new AnsiToHtml();
+                        if (platform === 'arduino') {
+                            ast = Arduino.transform(ast);
+                        }
+
+                        directives.enrichSyntaxTree(source, ast);
+                        res.json({ast: ast, diagnostics: convert.toHtml(errorChunks.join(''))});
+                    } catch (err) {
+                        res.json({error: err.toString()});
+                    }
+                }
+            } else {
+                res.json({error: errorChunks.join('')});
+            }
+        });
+        cp.on('error', function (err) {
+            console.error(err);
+            if (errorSent) {
+                return;
+            }
+            errorSent = true;
+            res.json({error: err.toString()});
+        });
+    });
+}
+
+fs.readFile('config.json', 'utf8', async function (err, data) {
+    if (err) {
+        console.error('Cannot read config.json');
+        process.exit(1);
+    }
+
+    const config = JSON.parse(data);
+    config.isDevelopment = process.env.NODE_ENV !== 'production';
+    config.rootDir = path.resolve(path.dirname(__dirname));
+
+    console.log(`running in ${config.isDevelopment ? 'development' : 'production'} mode`);
+
+    if (!config.playerUrl) {
+        config.playerUrl = `${config.baseUrl}/task`;
+    }
+
+    // Create server early so Vite HMR can attach to it
+    const rootApp = express();
+    let server;
+    if (config.https) {
+        const key = fs.readFileSync(config.https.key, 'utf-8');
+        const cert = fs.readFileSync(config.https.cert, 'utf-8');
+        server = https.createServer({ key, cert }, rootApp);
+    } else {
+        server = http.createServer(rootApp);
+    }
+
+    const workerStore = startWorker(config);
+
+    try {
+        const app = await buildApp(config, workerStore, server);
+        if (config.mountPath) {
+            console.log(`mounting app at ${config.mountPath}`);
+            rootApp.use(config.mountPath, app);
+        } else {
+            rootApp.use(app);
+        }
+        server.listen(config.port);
+        workerStore.dispatch({type: 'START'});
+    } catch (err) {
+        console.log('app failed to start', err);
+        process.exit(1);
+    }
+});

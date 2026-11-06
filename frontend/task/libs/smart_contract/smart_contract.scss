@@ -1,0 +1,195 @@
+$smart-contract-border-color: rgba(0, 0, 0, 0.176);
+
+.smart-contract-visualization {
+  padding: 10px;
+
+  &.is-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+
+  .smart-contract-log {
+    border: solid 1px $smart-contract-border-color;
+    border-radius: 6px;
+
+    .smart-contract-log__header {
+      display: flex;
+      padding: 8px;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+      background: rgba(0, 0, 0, 0.03);
+      border-bottom: solid 1px $smart-contract-border-color;
+      color: rgb(33, 37, 41);
+      .smart-contract-log__icon {
+        margin-left: 4px;
+        margin-right: 10px;
+      }
+      .smart-contract-log__date {
+        white-space: nowrap;
+      }
+      .smart-contract-log__kind, .smart-contract-log__entry_point {
+        flex: 1 0;
+        font-weight: bold;
+      }
+    }
+    .smart-contract-log__scalars {
+      display: flex;
+      column-gap: 25px;
+      flex-wrap: wrap;
+      row-gap: 10px;
+    }
+
+    &.is-failed {
+      .smart-contract-log__header {
+        background: rgb(213, 84, 97);
+        color: white;
+        //background: #fdd;
+      }
+    }
+    &:not(.is-failed) {
+      .smart-contract-log__header {
+        background: rgb(61, 159, 113);
+        color: white;
+        //background: rgb(209, 231, 221);
+      }
+    }
+    &.is-balances {
+      .smart-contract-log__header {
+        padding: 4px;
+        background: #acacac;
+        color: white;
+      }
+    }
+    &.is-internal {
+      margin-left: 32px;
+    }
+  }
+
+  .smart-contract-scalar {
+    .smart-contract-scalar__header {
+      text-transform: uppercase;
+      font-size: 0.85em;
+      color: grey;
+    }
+
+    &.is-wrong {
+      .smart-contract-scalar__header {
+        color: red;
+      }
+      .smart-contract-scalar__value {
+        border-color: red;
+      }
+    }
+    &.is-right {
+      .smart-contract-scalar__header {
+        color: green;
+      }
+      .smart-contract-scalar__value {
+        border-color: green;
+      }
+    }
+  }
+
+  .smart-contract-log__body {
+    padding: 8px;
+  }
+
+  .smart-contract-log__costs {
+    margin-top: 10px;
+  }
+
+  .smart-contract-error {
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #efa124;
+  }
+
+  .smart-contract-log + .smart-contract-log {
+    margin-top: 10px;
+  }
+
+  .smart-contract-log__storage {
+    margin-top: 10px;
+
+    .smart-contract-scalar__value {
+      border: solid 1px $smart-contract-border-color;
+      border-radius: 6px;
+      padding: 5px;
+      display: inline-block;
+      min-width: 100px;
+    }
+  }
+
+  .smart-contract-log__storage-header {
+    font-size: .9em;
+    color: grey;
+    margin-bottom: 10px;
+  }
+
+  .smart-contract-log__see-more {
+    margin-bottom: 0 !important;
+    font-size: .85em !important;
+    color: var(--primary-color);
+    font-weight: bold;
+    svg {
+      vertical-align: middle;
+    }
+  }
+
+  .smart-contract-log__balances {
+    margin-top: 8px;
+    margin-bottom: 6px;
+    padding: 8px;
+
+    .smart-contract-log__balances-balance {
+      display: flex;
+
+      .smart-contract-log__balances-address {
+        flex: 0 0 auto;
+        font-size: 0.9em;
+      }
+
+      .smart-contract-log__balances-dots {
+        flex: 0 1 99%;
+        display: inline-block;
+        background-image: linear-gradient(to right, grey 33%, rgba(255,255,255,0) 0%);
+        background-position: bottom;
+        background-size: 4px 1px;
+        background-repeat: repeat-x;
+      }
+
+      .smart-contract-log__balances-amount {
+        flex: 0 0 auto;
+        display: inline-block;
+        font-size: 0.9em;
+        margin-left: 8px;
+      }
+    }
+  }
+
+  .smart-contract-log__footer {
+    display: flex;
+    padding: 8px;
+    border-top: solid 1px $smart-contract-border-color;
+    font-weight: bold;
+    font-size: .9em;
+    color: #107c00;
+    background: rgb(209, 231, 221);
+    &.is-failed {
+      color: #b60000;
+      background: #fdd;
+    }
+  }
+}
+
+.smart-contract-visualization-error {
+  margin-top: 10px;
+  color: #b60000;
+}
+
+.smart-contract-visualization-success {
+  margin-top: 10px;
+  color: #107c00;
+}

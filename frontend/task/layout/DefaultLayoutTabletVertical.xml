@@ -1,0 +1,19 @@
+<VerticalLayout>
+    <HorizontalLayout>
+        <ZoneLayout name="top-left,center-top,center-left" default="true" desiredSize="40%" overflow="show-scroll">
+            <Instructions/>
+            <Variables/>
+        </ZoneLayout>
+        <ZoneLayout name="top-right,center-bottom,center-right" desiredSize="60%">
+            <ContextVisualization/>
+        </ZoneLayout>
+    </HorizontalLayout>
+    <ZoneLayout name="center">
+        <Documentation/>
+        <Editor closedOnDocumentationOpen="true"/>
+    </ZoneLayout>
+    <ZoneLayout name="bottom-left,bottom-right" closedOnDocumentationOpen="true"/>
+    <ZoneLayout desiredSize="60px" overflow="false">
+        <ControlsAndErrors/>
+    </ZoneLayout>
+</VerticalLayout>

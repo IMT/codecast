@@ -1,0 +1,67 @@
+.object-toggle, .list-toggle {
+  cursor: pointer;
+}
+.toggle-icon {
+  color: #ffcc1e;
+}
+.object-toggle:hover .toggle-icon, .list-toggle:hover .toggle-icon {
+  color: #000000;
+}
+.object-toggle-open {
+  display: inline-block;
+  //min-width: 60px;
+}
+
+.variable-container {
+  word-break: break-all;
+}
+
+.analysis-variable-image {
+  max-width: 90vw;
+  height: auto;
+}
+
+.analysis-variable-link {
+  cursor: pointer;
+  > * {
+    vertical-align: middle;
+  }
+}
+
+.function-name {
+  color: #53b846;
+}
+.variable-name {
+  color: #c313e0;
+}
+
+.value-string {
+  color: #e01313;
+}
+.value-scalar {
+  color: #241eff;
+}
+.value-empty {
+  color: #ffcc1e;
+}
+.value-has-changed {
+  border-radius: 100px;
+  background-color: #ffdb95;
+  padding: 1px 5px;
+}
+
+.value-loaded {
+  border-radius: 100px;
+  background-color: #b8ceee;
+  padding: 1px 5px;
+}
+
+.value-type {
+  color: #b8b246;
+  font-size: 0.9em;
+}
+
+.value-count {
+  color: grey;
+  font-size: 0.9em;
+}

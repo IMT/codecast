@@ -1,0 +1,77 @@
+import { Button, Dialog, FormGroup, InputGroup, Intent } from "@blueprintjs/core";
+import React, {FormEvent, useState} from "react";
+import {useDispatch} from "react-redux";
+import {useAppSelector} from '../hooks';
+import {isLocalStorageEnabled} from '../common/utils';
+import {bufferGitPush} from './buffer_actions';
+import {GitSyncParams} from './buffer_types';
+import {bufferInit} from './buffers_slice';
+import { Comment, User, Menu } from '@blueprintjs/icons';
+import {getMessage} from '../lang/messages';
+
+export function GitCommitDialog({bufferName}: {bufferName: string}) {
+    const gitSync = useAppSelector(state => state.buffers.buffers[bufferName].gitSync);
+    const dispatch = useDispatch();
+    const [gitUsername, setGitUsername] = useState<string>(isLocalStorageEnabled() && localStorage.getItem('git_username') ? localStorage.getItem('git_username') : '');
+    const [gitCommitMessage, setGitCommitMessage] = useState<string>('');
+
+    const doGitPush = (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        dispatch(bufferGitPush(bufferName, gitCommitMessage, gitUsername));
+    };
+
+    const closeCommitDialog = () => {
+        const newGitSync: GitSyncParams = {
+            ...gitSync,
+            commitModalOpen: false,
+            pushError: null,
+        };
+        dispatch(bufferInit({buffer: bufferName, gitSync: newGitSync}));
+    };
+
+    return (
+        <Dialog
+            icon={<Menu/>}
+            title={getMessage('GIT_PUSH_LABEL')}
+            isOpen={true}
+            canOutsideClickClose={true}
+            canEscapeKeyClose={true}
+            isCloseButtonShown={true}
+            onClose={closeCommitDialog}
+        >
+            <div className='bp6-dialog-body'>
+                <form onSubmit={doGitPush}>
+                    <FormGroup labelFor='gitMessage' label={getMessage('GIT_COMMIT_MESSAGE')}>
+                        <InputGroup
+                            leftIcon={<Comment />}
+                            type='text'
+                            value={gitCommitMessage}
+                            required
+                            onChange={(e) => setGitCommitMessage(e.target.value)}
+                        />
+                    </FormGroup>
+                    <FormGroup labelFor='gitUsername' label={getMessage('GIT_USERNAME')}>
+                        <InputGroup
+                            leftIcon={<User />}
+                            type='text'
+                            value={gitUsername}
+                            required
+                            onChange={(e) => setGitUsername(e.target.value)}
+                        />
+                    </FormGroup>
+                    <Button
+                        text={getMessage('VALIDATE')}
+                        intent={Intent.PRIMARY}
+                        type="submit"
+                        loading={gitSync.loading}
+                        disabled={gitSync.loading}
+                    />
+
+                    {gitSync.pushError && <div className="generic-error mt-4">
+                        {gitSync.pushError}
+                    </div>}
+                </form>
+            </div>
+        </Dialog>
+    );
+}

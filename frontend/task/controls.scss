@@ -1,0 +1,282 @@
+@use './mixins' as *;
+
+.task .controls-and-errors {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.task .mode-selector {
+  background-color: #f1f2f7;
+}
+
+.task .stepper-controls-container {
+  flex: 1 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task .stepper-controls-container-flex {
+  display: flex;
+  flex: 1 0;
+}
+
+.task .execution-controls {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+
+  .execution-controls-dropdown {
+    display: flex;
+    align-items: center;
+    .dropdown {
+      @include codecast-dropdown;
+      .dropdown-toggle {
+        background: var(--primary-color);
+        color: white;
+        box-shadow: none !important;
+      }
+    }
+  }
+}
+
+.submission-server-controls {
+  flex: 1 0;
+}
+
+.submission-server-controls.no-padding .submission-controls {
+  padding-left: 0;
+}
+
+.execution-controls-submit {
+  flex: 0 1;
+  text-align: right;
+  padding-right: 10px;
+}
+
+.task .controls-stepper {
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+
+  &.is-centered {
+    justify-content: center;
+  }
+
+  > .is-extended {
+    flex: 10 0;
+  }
+
+  > .is-narrow {
+    flex: 0 1;
+  }
+
+  .speed-slider {
+    background-color: rgba(0,0,0,0.10);
+    box-shadow: 1px 1px 0 0 rgb(0 0 0 / 10%) inset;
+    border-radius: 5px;
+    font-size: 18px;
+    color: var(--secondary-color);
+    height: 36px;
+    display: flex;
+    align-items: center;
+    margin: 0 20px;
+    max-width: 300px;
+    .player-slider-container {
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .bp6-slider-axis, .bp6-slider-label {
+      display: none;
+    }
+    .bp6-slider {
+      height: 13px;
+      min-width: initial;
+    }
+    .bp6-slider-track {
+      height: 3px;
+    }
+    .bp6-slider-handle {
+      background: var(--primary-color);
+      border-radius: 50px;
+      width: 30px;
+      transform: translate(-7px, 0);
+      top: -2px;
+      box-shadow: 0 0 0 1px rgba(16, 22, 26, 0.2), 0 1px 1px rgba(16, 22, 26, 0.2);
+      &:after {
+        content: '';
+        display: block;
+        color: white;
+        position: absolute;
+        left: 8px;
+        top: 7px;
+        right: 8px;
+        border-bottom: solid 3px white;
+      }
+    }
+    .bp6-slider-progress.bp6-intent-primary {
+      background-color: var(--primary-color);
+    }
+    .extremity {
+      opacity: 0.5;
+      &.extremity-left {
+        margin-right: 20px;
+      }
+      &.extremity-right {
+        margin-left: 20px;
+      }
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .bp6-button {
+    @include control-button;
+  }
+}
+
+.task.task-player-replay .controls-stepper, .task.task-player-replay .controls-compile {
+  .bp6-button, .bp6-slider {
+    opacity: 0.3;
+    &:hover:not([disabled]) {
+      opacity: 1;
+    }
+  }
+}
+
+// Responsive
+.layout-mobile-horizontal.task, .layout-mobile-vertical.task {
+  .stepper-controls-container {
+    background: var(--primary-color);
+  }
+
+  .speed-slider {
+    box-shadow: none;
+    background-color: initial;
+    .extremity {
+      color: white;
+      opacity: 1;
+    }
+    .bp6-slider-handle {
+      background: white;
+      &:after {
+        border-bottom-color: var(--primary-color);
+      }
+    }
+    .bp6-slider-progress {
+      background: rgba(92, 112, 128, 0.76) !important;
+    }
+  }
+
+  .controls-stepper {
+    .bp6-button {
+      margin-right: 4px;
+      svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
+  }
+
+  .speed-slider {
+    margin: 0;
+  }
+}
+
+.layout-mobile-vertical.task {
+  .controls-stepper {
+    padding: 0 8px;
+  }
+  .controls-stepper.step_by_step {
+    padding: 0 5px;
+    width: 100%;
+    .bp6-button {
+      margin-right: 0px;
+      width: 30px;
+      height: 30px;
+    }
+  }
+}
+
+.layout-tablet-vertical .controls-stepper {
+  justify-content: center;
+}
+
+.task .biswitch {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  .bp6-switch {
+    margin: 0 4px 0 10px;
+    input ~ .bp6-control-indicator {
+      background: #e4e5ea !important;
+    }
+    .bp6-control-indicator {
+      box-shadow: inset 1px 1px 1px 0px #b3b3b3 !important;
+      &:before {
+        background: var(--primary-color);
+      }
+    }
+  }
+  .biswitch-option {
+    &.is-active {
+      font-weight: bold;
+    }
+  }
+}
+
+.task .submission-controls {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+
+  .button-switch {
+    height: 36px;
+    background: #dfe0e4;
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    margin-right: 20px;
+    .button-switch-option {
+      text-transform: uppercase;
+      color: #89898a;
+      cursor: pointer;
+      padding: 0 40px;
+      font-weight: bold;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      &.is-active {
+        background: var(--primary-color);
+        border-radius: 100px;
+        color: white;
+        height: 100%;
+      }
+    }
+  }
+}
+
+.fake-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  border-radius: 500px;
+  background: var(--primary-color);
+  color: white;
+  height: 30px;
+  width: 30px;
+  margin: 0 10px 0 0;
+  border: none;
+  box-shadow: none !important;
+  pointer-events: none;
+  margin-left: 8px;
+}

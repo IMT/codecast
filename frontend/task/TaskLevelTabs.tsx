@@ -1,0 +1,101 @@
+import React, {useState} from "react";
+import {useAppSelector} from "../hooks";
+import {useDispatch} from "react-redux";
+import {Stars} from "./Stars";
+import {faChevronLeft, faChevronRight} from "@fortawesome/free-solid-svg-icons";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import {TaskLevelName} from "./platform/platform_slice";
+import {Button, Dialog} from '@blueprintjs/core';
+import {taskChangeLevel} from './task_actions';
+import {levelScoringData} from '../submission/scoring';
+import {getMessage} from '../lang/messages';
+
+export function TaskLevelTabs() {
+    const currentLevel = useAppSelector(state => state.task.currentLevel);
+    const levels = useAppSelector(state => state.platform.levels);
+    const [lockedDialogOpen, setLockedDialogOpen] = useState(false);
+    const [levelToChange, setLevelToChange] = useState<TaskLevelName>(null);
+    // Option called "Score immédiat" in the platform
+    const taskParamsFullFeedback = useAppSelector(state => state.platform.taskParams.fullFeedback);
+
+    const bypassLock = window.location.protocol === 'file:' || -1 !== ['localhost', '127.0.0.1', '0.0.0.0', 'lvh.me'].indexOf(window.location.hostname);
+
+    const dispatch = useDispatch();
+
+    const changeVersion = (level: TaskLevelName) => {
+        if (levels[level].locked) {
+            setLevelToChange(level);
+            setLockedDialogOpen(true);
+        } else {
+            dispatch(taskChangeLevel(level));
+        }
+    };
+
+    const doBypassLock = () => {
+        dispatch(taskChangeLevel(levelToChange));
+        closeLockedDialog();
+    };
+
+    const closeLockedDialog = () => {
+        setLockedDialogOpen(false);
+    };
+
+    return (
+        <nav className="level-tabs cursor-main-zone" data-cursor-zone="task-levels" role="tablist">
+            {Object.values(levels).map((levelData, index) =>
+                <div
+                    key={levelData.level}
+                    className={`level-tab ${currentLevel && levelData.level === currentLevel ? 'current' : ''}`}
+                    role="tab"
+                >
+                    {index > 0 && <a
+                        className="prev-link"
+                        onClick={() => changeVersion(Object.keys(levels)[index - 1] as TaskLevelName)}
+                    >
+                        <FontAwesomeIcon icon={faChevronLeft}/>
+                    </a>}
+                    <div
+                        className="level-tab-link"
+                    >
+                        <button onClick={() => changeVersion(levelData.level)}>
+                            <span>{getMessage('TASK_LEVEL')}</span>
+                            <span className="visually-hidden">{getMessage('TASK_LEVEL_VERSION').format({count: levelScoringData[levelData.level].stars})}</span>
+                            <Stars
+                                starsCount={levelScoringData[levelData.level].stars}
+                                rating={false !== taskParamsFullFeedback ? levelData.score : null}
+                                disabled={levelData.locked}
+                            />
+                        </button>
+                    </div>
+                    {index < Object.values(levels).length - 1 && <a
+                        className="next-link"
+                        onClick={() => changeVersion(Object.keys(levels)[index + 1] as TaskLevelName)}
+                    >
+                        <FontAwesomeIcon icon={faChevronRight}/>
+                    </a>}
+                </div>
+            )}
+
+            <Dialog
+                isOpen={lockedDialogOpen}
+                canOutsideClickClose={true}
+                canEscapeKeyClose={true}
+                onClose={closeLockedDialog}
+                title={getMessage('TASK_LEVEL_LOCKED_TITLE')}
+            >
+                <div className='bp6-dialog-body'>
+                    <p>{getMessage(bypassLock ? 'TASK_LEVEL_LOCKED_MESSAGE_DEV' : 'TASK_LEVEL_LOCKED_MESSAGE')}</p>
+
+                    {bypassLock && <div className="has-text-centered">
+                        <Button
+                            className="quickalgo-button is-medium"
+                            onClick={doBypassLock}
+                        >
+                            {getMessage('TASK_LEVEL_LOCKED_MESSAGE_DEV_BUTTON')}
+                        </Button>
+                    </div>}
+                </div>
+            </Dialog>
+        </nav>
+    );
+}

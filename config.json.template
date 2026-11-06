@@ -14,6 +14,10 @@
     "saveUninitialized": true,
     "cookie": {"secure": true, "maxAge": 604800}
   },
+  "https": {
+    "key": "localhost-key.pem",
+    "cert": "localhost.pem"
+  },
   "auth": {
     "@@AUTH_PROVIDER_NAME@@": {
       "oauth2": {
@@ -40,5 +44,17 @@
     "default": [
       "base", {"uploadPath": "uploads"}
     ]
+  },
+  "builderUrl": "https://archive-builder.test",
+  "examplesUrl": "https://codecast.test/examples/",
+  "bebrasModulesUrl": "",
+  "audioWorkerUrl": "build/index.worker.worker.js",
+  "ownSecret": "The own secret",
+  "builderSecret": "The builder secret",
+  "defaultPlatform": "unix",
+  "codeHelp": {
+    "url": "http://127.0.0.1:5000",
+    "username": "root",
+    "password": "root"
   }
 }

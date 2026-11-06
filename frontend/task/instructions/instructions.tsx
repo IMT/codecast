@@ -1,0 +1,394 @@
+import * as htmlToReact from '@hedgedoc/html-to-react';
+import {platformsList} from '../../stepper/platforms';
+import {PlatformSelection} from '../../common/PlatformSelection';
+import {SmartContractStorage} from '../libs/smart_contract/SmartContractStorage';
+import {Editor} from '../../buffers/Editor';
+import {generatePropsFromAttributes} from '@hedgedoc/html-to-react/dist/utils/generatePropsFromAttributes';
+import {VOID_ELEMENTS} from '@hedgedoc/html-to-react/dist/dom/elements/VoidElements';
+import React from 'react';
+import {AppStore} from '../../store';
+import {formatTaskInstructions} from '../utils';
+import {TaskLevelName} from '../platform/platform_slice';
+import {createSelector} from '@reduxjs/toolkit';
+import {quickAlgoLibraries} from '../libs/quick_algo_libraries_model';
+import {CodecastPlatform} from '../../stepper/codecast_platform';
+import {TaskInstructionsVideo} from './TaskInstructionsVideo';
+import {QuickAlgoLibrary} from '../libs/quickalgo_library';
+import {TaskInstructionsSlideshow} from './TaskInstructionsSlideshow';
+import {TaskStringNormalized} from '../task_types';
+import {TaskLimits} from '../TaskLimits';
+import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
+import {TaskExamples} from '../TaskExamples';
+
+function findStringForLanguage(taskStrings: TaskStringNormalized[], languages: string[]): TaskStringNormalized {
+    for (let language of languages) {
+        let taskString = taskStrings.find(string => string.language === language);
+        if (taskString) {
+            return taskString;
+        }
+    }
+
+    return taskStrings[0];
+}
+
+export function selectLanguageStrings(state: AppStore): TaskStringNormalized {
+    const currentTask = state.task.currentTask;
+    if (null === currentTask || !currentTask.strings?.length) {
+        return null;
+    }
+
+    const language = state.options.language.split('-')[0];
+
+    return findStringForLanguage(currentTask.strings, [language, 'en', 'fr']);
+}
+
+
+const defaultInstructionsHtml = `
+<p>
+    Programmez le robot pour qu'il pousse les caisses sur les cases marquées.
+</p>
+<p>
+    Pour pousser une caisse, mettez d'abord le robot face à la caisse, il avancera en la poussant.
+    <a onclick="changeTaskLevel('medium')">Aller au tuto</a>
+</p>
+<div class="advice">
+    Pour le fonctionnement des blocs de boucle, pense à regarder la documentation.
+</div>
+<p class="easy medium hard">
+  Aide : <a class="aide" onclick="conceptViewer.showConcept('blockly_controls_repeat')">
+  <span data-lang="blockly scratch">Boucle de répétition</span>
+  <span data-lang="python">Boucle for</span></a>
+</p>
+<pre>Hello MOOC!</pre>
+<p class="variant_1">
+    Uniquement variante 1
+</p>
+<p class="variant_2">
+    Uniquement variante 2
+</p>
+<p class="variant_1 variant_2">
+    Variante 1 et variante 2
+</p>
+<div class="long">
+  <p>Plus de détails sur la mission</p>
+  <div data-slideshow>
+    <div id="image-container">
+      <center><img id="diaporama" src="build/images/11_variable_08_sokoban/slides/diapo_01_blockly.png" alt="Diaporama"></center>
+    </div>
+    <div id="image-container">
+      <center><img id="diaporama" src="build/images/11_variable_08_sokoban/slides/diapo_02_blockly.png" alt="Diaporama"></center>
+    </div>
+  </div>
+</div>
+<div class="basic">
+    <div class="hints">
+        <div class="hint">
+            Hint 1
+        </div>
+        <div class="hint">
+            Hint 2
+        </div>
+    </div>
+    <div class="success-message">
+        <p>Test</p>
+        <p>Success basic</p>
+    </div>
+</div>
+<div class="easy">
+    <div class="hints">
+        <div class="hint">
+            Hint 1
+        </div>
+    </div>
+    <div class="success-message">
+        <p>Test</p>
+        <p>Success easy</p>
+    </div>
+</div>
+    
+    
+<!--    <div class="instructions-tabs">-->
+<!--      <div class="instructions-tab" data-title="Règle du jeu">-->
+<!--        <div>-->
+<!--        C’est à ton tour de jouer. Lance le dé et déplace ton pion d’autant de cases que la valeur obtenue sur le dé. Retourne la case d’arrivée de ton pion.-->
+<!--        </div>-->
+<!--      </div>-->
+<!--      -->
+<!--      <div class="instructions-tab" data-title="Votre mission">-->
+<!--        <div class="instructions-page">-->
+<!--          <p>Page 1</p>-->
+<!--          <p>Page 1</p>-->
+<!--          <p>Page 1</p>-->
+<!--          <p>Page 1</p>-->
+<!--          <p>Page 1</p>-->
+<!--        </div>-->
+<!--         <div class="instructions-page">-->
+<!--          <p>Page 2</p>-->
+<!--          <p>Page 2</p>-->
+<!--          <p>Page 2</p>-->
+<!--          <p>Page 2</p>-->
+<!--          <p>Page 2</p>-->
+<!--        </div>-->
+<!--         <div class="instructions-page">-->
+<!--          <p>Page 3</p>-->
+<!--          <p>Page 3</p>-->
+<!--          <p>Page 3</p>-->
+<!--          <p>Page 3</p>-->
+<!--          <p>Page 3</p>-->
+<!--          <p>Page 3</p>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--      -->
+<!--      <div class="instructions-tab" data-title="Conseil">-->
+<!--        <div class="instructions-page">-->
+<!--          <p>Page 1</p>-->
+<!--        </div>-->
+<!--         <div class="instructions-page">-->
+<!--          <p>Page 2</p>-->
+<!--        </div>-->
+<!--         <div class="instructions-page">-->
+<!--          <p>Page 3</p>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--    </div>-->
+`;
+
+export const getInstructionsForLevelSelector = createSelector(
+    ({state}: {state: AppStore, context: QuickAlgoLibrary}) => state.options.taskInstructions,
+    ({state}: {state: AppStore, context: QuickAlgoLibrary}) => state.task.currentTask,
+    ({state}: {state: AppStore, context: QuickAlgoLibrary}) => state.task.currentLevel,
+    ({state}: {state: AppStore, context: QuickAlgoLibrary}) => state.task.levelGridInfos,
+    ({state}: {state: AppStore, context: QuickAlgoLibrary}) => state.options.platform,
+    ({state}: {state: AppStore, context: QuickAlgoLibrary}) => selectLanguageStrings(state),
+    ({context}: {state: AppStore, context: QuickAlgoLibrary}) => context,
+    (taskInstructionsHtmlFromOptions, currentTask, taskLevel, levelGridInfos, platform, instructions, context) => {
+        let newInstructionsHtml = taskInstructionsHtmlFromOptions ? taskInstructionsHtmlFromOptions : null;
+        // let newInstructionsHtml = defaultInstructionsHtml;
+        let newInstructionsTitle = null;
+        if (currentTask && currentTask.strings && currentTask.strings.length) {
+            if (instructions.title) {
+                newInstructionsTitle = instructions.title;
+            }
+            newInstructionsHtml = instructions.statement;
+        } else if (context && window.algoreaInstructionsStrings && window.getAlgoreaInstructionsAsHtml && currentTask?.gridInfos.intro) {
+            const strLang = window.stringsLanguage;
+            if (strLang in window.algoreaInstructionsStrings) {
+                const strings = window.algoreaInstructionsStrings[strLang];
+                let newInstructions = window.getAlgoreaInstructionsAsHtml(strings, levelGridInfos, currentTask.data, taskLevel, platform);
+                if (newInstructions) {
+                    const innerText = window.jQuery(newInstructions).text();
+                    if (innerText.length) {
+                        newInstructionsHtml = newInstructions;
+                    }
+                }
+            }
+        }
+        return {
+            html: newInstructionsHtml,
+            title: newInstructionsTitle,
+        };
+    }
+);
+
+export function getTaskSolution(state: AppStore) {
+    if (state.options.taskSolution) {
+        return state.options.taskSolution;
+    }
+
+    return selectLanguageStrings(state)?.solution;
+}
+
+export const getFormattedInstructionsForLevelSelector = createSelector(
+    (arg: {state: AppStore, context: QuickAlgoLibrary}) => getInstructionsForLevelSelector(arg).html,
+    ({state}: {state: AppStore, context: QuickAlgoLibrary}) => state.options.platform,
+    ({state}: {state: AppStore, context: QuickAlgoLibrary}) => state.task.currentLevel,
+    ({state}: {state: AppStore, context: QuickAlgoLibrary}) => state.options.taskVariant,
+    (html, platform, taskLevel, taskVariant) => {
+        return formatTaskInstructions(html, platform, taskLevel, taskVariant);
+    }
+);
+
+export const getTaskSuccessMessageSelector = createSelector(
+    (state: AppStore) => {
+        const context = quickAlgoLibraries.getContext(null, state.environment);
+        return getFormattedInstructionsForLevelSelector({state, context});
+    },
+    (instructionsJQuery) => {
+        return instructionsJQuery.find('.success-message').length ? instructionsJQuery.find('.success-message').html() : null;
+    }
+);
+
+export const getTaskHintsSelector = createSelector(
+    (state: AppStore) => {
+        const context = quickAlgoLibraries.getContext(null, state.environment);
+        return getInstructionsForLevelSelector({state, context}).html;
+    },
+    (state: AppStore) => state.options.platform,
+    (state: AppStore) => state.platform.levels,
+    (html, platform, levels) => {
+        let hints = [];
+
+        const addHintsForLevel = (level: TaskLevelName) => {
+            const instructionsJQuery = formatTaskInstructions(html, platform, level);
+            if (instructionsJQuery.find('.hints').length) {
+                const levelHints = instructionsJQuery.find('.hints').first().children('div').toArray().map(elm => {
+                    return {
+                        content: elm.innerHTML.trim(),
+                        minScore: elm.getAttribute('data-min-score') ? Number(elm.getAttribute('data-min-score')) : undefined,
+                        id: elm.getAttribute('data-id') ? elm.getAttribute('data-id') : undefined,
+                        question: elm.hasAttribute('data-question'),
+                        previousHintId: elm.getAttribute('data-previous-hint-id') ? elm.getAttribute('data-previous-hint-id') : undefined,
+                        nextHintId: elm.getAttribute('data-next-hint-id') ? elm.getAttribute('data-next-hint-id') : undefined,
+                        yesHintId: elm.getAttribute('data-yes-hint-id') ? elm.getAttribute('data-yes-hint-id') : undefined,
+                        noHintId: elm.getAttribute('data-no-hint-id') ? elm.getAttribute('data-no-hint-id') : undefined,
+                        disablePrevious: elm.hasAttribute('data-disable-previous'),
+                        disableNext: elm.hasAttribute('data-disable-next'),
+                        immediate: elm.hasAttribute('data-immediate'),
+                        levels: [level],
+                    };
+                });
+
+                hints = [...hints, ...levelHints];
+            }
+        };
+
+        if (Object.keys(levels).length) {
+            for (let level of Object.keys(levels)) {
+                addHintsForLevel(level as TaskLevelName);
+            }
+        } else {
+            addHintsForLevel(null);
+        }
+
+        return hints.length ? hints : null;
+    }
+);
+
+function getNodeText(node) {
+    if ('text' === node.type) {
+        return node.data;
+    }
+
+    const nodeTexts = [];
+    for (let subNode of node.children) {
+        nodeTexts.push(getNodeText(subNode));
+    }
+
+    return nodeTexts.join(' ');
+}
+
+function transformNode(node, index: string|number, context: {platform: CodecastPlatform}) {
+    if (node.attribs && 'current-lang' in node.attribs) {
+        return <span>{platformsList[context.platform].name}</span>
+    } else if (node.attribs && 'select-lang-selector' in node.attribs) {
+        return <PlatformSelection key="platform-selection" withoutLabel/>;
+    } else if (node.attribs && 'smart-contract-storage' in node.attribs) {
+        return <SmartContractStorage/>;
+    } else if (node.attribs && 'data-icon' in node.attribs) {
+        return <FontAwesomeIcon icon={node.attribs['data-icon']} className={node.attribs['class']}/>;
+    } else if (node.attribs && ('data-show-source' in node.attribs || ('class' in node.attribs && -1 !== node.attribs['class'].indexOf('language-')))) {
+        let code, lang;
+        if ('data-show-source' in node.attribs) {
+            code = node.attribs['data-code'] ?? getNodeText(node);
+            lang = node.attribs['data-lang'] ?? node.attribs['data-always-show-lang'];
+        } else {
+            code = getNodeText(node);
+            lang = node.attribs['class'].substring(node.attribs['class'].indexOf('language-') + 'language-'.length).split(' ')[0];
+        }
+
+        if (!(lang in platformsList)) {
+            throw new Error(`Unknown language "${lang}" to display source code`);
+        }
+
+        const sourceMode = platformsList[lang ?? context.platform].aceSourceMode;
+
+        let children = null;
+        if (VOID_ELEMENTS.indexOf(node.tagName) === -1) {
+            children = htmlToReact.processNodes(node.children, (node, index) => transformNode(node, index, context));
+        }
+
+        return <div style={{marginBottom: 20}} data-lang={lang} className="code-block code">
+            {'data-show-header' in node.attribs && !!platformsList[lang] && <div className="code-header">
+                {platformsList[lang].name}
+            </div>}
+            {!!code.trim() ?
+                <Editor
+                    content={code}
+                    readOnly
+                    mode={sourceMode}
+                    width="100%"
+                    hideGutter
+                    hideCursor
+                    showPrintMargin={false}
+                    highlightActiveLine={false}
+                    dragEnabled={false}
+                    maxLines={Infinity}
+                />
+                : (null !== children ? <div className="editor">{React.createElement(node.tagName, {}, children)}</div> : null)}
+        </div>;
+    } else if (node.attribs && 'data-task-limits' in node.attribs) {
+        return <TaskLimits/>;
+    } else if (node.attribs && 'data-task-examples' in node.attribs) {
+        return <TaskExamples/>;
+    } else if (node.attribs && 'data-slideshow' in node.attribs) {
+        let children = htmlToReact.processNodes(node.children, (node, index) => transformNode(node, index, context))
+            .filter(a => 'string' !== typeof a);
+
+        return <TaskInstructionsSlideshow
+            slides={children}
+        />;
+    } else if (node.attribs && 'onclick' in node.attribs) {
+        const tagName = node.tagName;
+        const props = generatePropsFromAttributes(node.attribs, index);
+
+        let codeToExecute = node.attribs.onclick;
+        const preventDefault = -1 !== codeToExecute.indexOf('return false');
+
+        // @ts-ignore
+        props['onClick'] = (e) => {
+            if (preventDefault) {
+                codeToExecute = codeToExecute.replace(/return false/g, '');
+            }
+
+            eval(codeToExecute);
+            if (preventDefault) {
+                e.preventDefault();
+            }
+        };
+
+        // If the node is not a void element and has children then process them
+        let children = null;
+        if (VOID_ELEMENTS.indexOf(tagName) === -1) {
+            children = htmlToReact.processNodes(node.children, (node, index) => transformNode(node, index, context));
+        }
+
+        return React.createElement(tagName, props, children);
+    } else if (node.attribs && 'class' in node.attribs && -1 !== node.attribs['class'].split(' ').indexOf('videoBtn')) {
+        let children = htmlToReact.processNodes(node.children, (node, index) => transformNode(node, index, context));
+        const props = generatePropsFromAttributes({
+            style: 'data-style' in node.attribs ? node.attribs['data-style'] : null,
+        }, index);
+
+        return <TaskInstructionsVideo
+            url={node.attribs['data-video']}
+            style={props['style'] as React.CSSProperties}
+        >
+            {React.createElement('div', props, children)}
+        </TaskInstructionsVideo>
+    }
+
+    return undefined;
+}
+
+export function convertHtmlInstructionsToReact(instructionsHtml: string, platform: CodecastPlatform) {
+    // @ts-ignore
+    return htmlToReact.default.default(instructionsHtml, {transform: (node, index) => transformNode(node, index, {platform})})
+}
+
+export function applyInstructionsPostProcessing() {
+    if (window.instructionsPostProcessing?.length) {
+        for (let postProcessingCallback of window.instructionsPostProcessing) {
+            postProcessingCallback();
+        }
+    }
+}

@@ -2,3 +2,14 @@
 /node_modules
 /c-to-json
 /build
+/dist
+/.vscode
+/.idea
+config.json
+sysroot/usr/include/robot.h
+sysroot/usr/include/printer.h
+sysroot/usr/include/quickpi.h
+localhost.pem
+localhost-key.pem
+.claude/
+.mcp.json

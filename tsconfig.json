@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "outDir": "./build/",
+    "sourceMap": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES6",
+    "skipLibCheck": true,
+
+    "strict": true, // enable all strict rules, unless they are explicitely disabled (below). there should not be any of such exceptions.
+    "noImplicitAny": false, // temporirly disabled, should fix code and remove this line
+    "noImplicitThis": false, // temporirly disabled, should fix code and remove this line
+    "strictNullChecks": false, // temporirly disabled, should fix code and remove this line
+    "strictPropertyInitialization": false, // temporirly disabled, should fix code and remove this line
+
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    /// noUnusedLocals and noUnusedParameters are too restrictive (no way to add exceptions) so they should be checked by the eslint
+
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    //"skipLibCheck": true,
+    //"forceConsistentCasingInFileNames": true
+    "jsx": "react-jsx",
+    "allowJs": true
+  },
+  "include": ["frontend"],
+  "exclude": [
+    "bebras-modules",
+    "build",
+    "node_modules"
+  ],
+  "$schema": "https://json.schemastore.org/tsconfig"
+}

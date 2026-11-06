@@ -1,0 +1,127 @@
+import React from "react";
+import scrollIntoView from "scroll-into-view-if-needed";
+import {SubtitlePaneItemEditor} from "./SubtitlePaneItemEditor";
+import {SubtitlePaneItemViewer} from "./SubtitlePaneItemViewer";
+import {ActionTypes} from "../actionTypes";
+import {ActionTypes as PlayerActionTypes} from "../../player/actionTypes";
+import {connect} from "react-redux";
+import {AppStore} from "../../store";
+import {NodeCue} from "subtitle";
+
+interface SubtitlesEditorPaneStateToProps {
+    subtitles: NodeCue[],
+    currentIndex: number,
+    audioTime: number,
+    selectedKey: number,
+}
+
+function mapStateToProps(state: AppStore): SubtitlesEditorPaneStateToProps {
+    const {items, currentIndex, audioTime, selectedKey} = state.subtitles;
+
+    return {
+        subtitles: items,
+        currentIndex,
+        audioTime,
+        selectedKey,
+    };
+}
+
+interface SubtitlesEditorPaneDispatchToProps {
+    dispatch: Function
+}
+
+interface SubtitlesEditorPaneProps extends SubtitlesEditorPaneStateToProps, SubtitlesEditorPaneDispatchToProps {
+
+}
+
+class _SubtitlesEditorPane extends React.PureComponent<SubtitlesEditorPaneProps> {
+    _selectedRef = React.createRef<HTMLDivElement>();
+
+    render() {
+        const {subtitles, currentIndex, audioTime, selectedKey} = this.props;
+        const items = [];
+        let message = null;
+        const shiftAmount = 200;
+
+        if (subtitles && subtitles.length > 0 && selectedKey) {
+            let prevStart = 0;
+            const canRemove = subtitles.length > 1;
+            subtitles.forEach((subtitle, index) => {
+                const selected = currentIndex === index;
+                if (selected) {
+                    items.push(<div key={index} ref={this._selectedRef}>
+                        <SubtitlePaneItemEditor
+                            item={subtitle}
+                            offset={audioTime - subtitle.data.start}
+                            audioTime={audioTime}
+                            onChange={this._changeItem}
+                            onInsert={this._insertItem}
+                            onRemove={canRemove && this._removeItem}
+                            onShift={this._shiftItem}
+                            minStart={prevStart + shiftAmount}
+                            maxStart={subtitle.data.end - shiftAmount}
+                            shiftAmount={shiftAmount}
+                        />
+                    </div>);
+                } else {
+                    items.push(<SubtitlePaneItemViewer
+                        key={index}
+                        item={subtitle}
+                        onJump={this._jump}/>
+                    );
+                }
+                prevStart = subtitle.data.start;
+            });
+        } else {
+            return null;
+        }
+        return (
+            <div className='subtitles-pane'>
+                {items}
+                {message}
+            </div>
+        );
+    }
+
+    componentDidUpdate(prevProps) {
+        if (this.props.currentIndex !== prevProps.currentIndex) {
+            const domNode = this._selectedRef.current;
+            if (domNode) {
+                scrollIntoView(domNode, {
+                    block: 'center',
+                    behavior: 'smooth'
+                });
+            }
+        }
+    }
+    _jump = (subtitle: NodeCue) => {
+        this.props.dispatch({type: PlayerActionTypes.PlayerSeek, payload: {audioTime: subtitle.data.start}});
+    };
+    _changeItem = (subtitle: NodeCue, text) => {
+        const index = this.props.subtitles.indexOf(subtitle);
+
+        this.props.dispatch({type: ActionTypes.SubtitlesItemChanged, payload: {index, text}});
+    };
+    _insertItem = (subtitle: NodeCue, offset, where) => {
+        const index = this.props.subtitles.indexOf(subtitle);
+
+        this.props.dispatch({type: ActionTypes.SubtitlesItemInserted, payload: {index, offset, where}});
+    };
+    _removeItem = (subtitle: NodeCue) => {
+        const index = this.props.subtitles.indexOf(subtitle);
+        const merge = index === 0 ? 'down' : 'up';
+
+        this.props.dispatch({type: ActionTypes.SubtitlesItemRemoved, payload: {index, merge}});
+    };
+    _shiftItem = (subtitle: NodeCue, amount) => {
+        const index = this.props.subtitles.indexOf(subtitle);
+
+        this.props.dispatch({type: ActionTypes.SubtitlesItemShifted, payload: {index, amount}});
+    };
+    _filterTextChanged = (event) => {
+        const text = event.target.value;
+        this.props.dispatch({type: ActionTypes.SubtitlesFilterTextChanged, payload: {text}});
+    };
+}
+
+export const SubtitlesEditorPane = connect(mapStateToProps)(_SubtitlesEditorPane);
